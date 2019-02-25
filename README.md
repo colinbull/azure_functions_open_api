@@ -1,2 +1,2 @@
-# azure_functions_open_api
+# Azure functions open api
 Open API documentation generator for Azure Functions V2
