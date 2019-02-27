@@ -10,7 +10,7 @@ namespace Inno.AzureFunctionsV2.OpenApi
 {
     public static class FunctionResolver 
     {
-        public static bool TryGetFunctionDefinition(MethodInfo methodInfo, string basePath, HashSet<Type> excludedParameterTypes, out FunctionDefinition definition)
+        private static bool TryGetFunctionDefinition(MethodInfo methodInfo, HashSet<Type> excludedParameterTypes, out FunctionDefinition definition)
         {
             var functionAttr = methodInfo.GetAttributes<FunctionNameAttribute>().FirstOrDefault();
             var triggerAttr = methodInfo.GetParameters().SelectMany(p => p.GetCustomAttributes().OfType<HttpTriggerAttribute>()).SingleOrDefault();
@@ -20,7 +20,7 @@ namespace Inno.AzureFunctionsV2.OpenApi
                     Name = functionAttr.Name,
                     ContainingType = methodInfo.DeclaringType,
                     Methods = triggerAttr.Methods.Select(m => (OperationType)Enum.Parse(typeof(OperationType),m, true)).ToArray(),
-                    Route = basePath.TrimEnd('/') + "/" + triggerAttr.Route,
+                    Route = "/" + triggerAttr.Route.TrimStart('/'),
                     Returns = methodInfo.GetAttributes<ReturnsAttribute>().ToArray(),
                     Parameters = methodInfo.GetParametersExcluding(excludedParameterTypes).ToArray()
                };
@@ -33,11 +33,11 @@ namespace Inno.AzureFunctionsV2.OpenApi
             return false;
         }
 
-        public static IEnumerable<FunctionDefinition> GetFunctions(Assembly assembly, string basePath, HashSet<Type> excludedParameterTypes) {
+        public static IEnumerable<FunctionDefinition> GetFunctions(Assembly assembly, HashSet<Type> excludedParameterTypes = null) {
 
             return assembly.GetTypes()
                 .SelectMany(t => t.GetMethods().Aggregate(new List<FunctionDefinition>(), (funcs,methodInfo) => {
-                    if(TryGetFunctionDefinition(methodInfo, basePath, excludedParameterTypes, out var def)) {
+                    if(TryGetFunctionDefinition(methodInfo, excludedParameterTypes, out var def)) {
                         funcs.Add(def);
                     }
 

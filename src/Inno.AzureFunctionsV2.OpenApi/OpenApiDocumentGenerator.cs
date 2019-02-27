@@ -31,8 +31,6 @@ namespace Inno.AzureFunctionsV2.OpenApi
             typeof(HttpTriggerAttribute)
         };
 
-
-
         public OpenApiDocument GenerateOpenApiDocument(ApiMetadata metaData, Assembly assembly, IEnumerable<Type> additionalParamterExclusionTypes = null)
         {
             var doc = new OpenApiDocument {
@@ -55,27 +53,62 @@ namespace Inno.AzureFunctionsV2.OpenApi
             ExcludedParameterTypes.UnionWith(additionalParamterExclusionTypes ?? Enumerable.Empty<Type>());
             
         
-            foreach(var func in FunctionResolver.GetFunctions(assembly, metaData.Url, ExcludedParameterTypes))
+            foreach(var func in FunctionResolver.GetFunctions(assembly, ExcludedParameterTypes))
             {
 
                 if(!doc.Paths.TryGetValue(func.Route, out var _))
                 {
+                    var responses = new OpenApiResponses();
+
+                    foreach(var r in func.Returns)
+                    {
+                        if(r.BodyType != null) {
+                            var primitive = r.BodyType.MapPrimitive();
+
+                            if(primitive == null) {
+                                doc.Components.Schemas.Merge(r.BodyType?.GetSchemas());
+
+                                responses.Add(r.StatusCode.ToString(), new OpenApiResponse { 
+                                    Description = r.Description,
+                                    Content = new Dictionary<string, OpenApiMediaType> {
+                                        ["application/json"] = new OpenApiMediaType { 
+                                            Schema = new OpenApiSchema {
+                                                Reference = new OpenApiReference { Type = ReferenceType.Schema, Id = r.BodyType.Name }
+                                            } 
+                                        }
+                                    }
+                                });
+                            } else {
+                                responses.Add(r.StatusCode.ToString(), new OpenApiResponse { 
+                                    Description = r.Description,
+                                    Content = new Dictionary<string, OpenApiMediaType> {
+                                        ["application/json"] = new OpenApiMediaType { 
+                                            Schema = new OpenApiSchema {
+                                                Type = r.BodyType.MapPrimitive()?.Type
+                                            } 
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            responses.Add(r.StatusCode.ToString(), new OpenApiResponse {
+                                Description = r.Description
+                            });
+                        }
+                    }
+
                     doc.Paths[func.Route] = new OpenApiPathItem {
                         Description = func.Description,
+                        Parameters = func.Parameters.Select(p =>
+                            new OpenApiParameter {
+                                In = ParameterLocation.Path,
+                                Name = p.Name,
+                                Schema = p.ParameterType.MapPrimitive(),
+                                Required = true                                
+                            }
+                        ).ToList(),
                         Operations = func.Methods.ToDictionary(m => m, m => new OpenApiOperation {
-                            Responses = (OpenApiResponses)func.Returns.ToDictionary(r => r.ToString(), r => {
-                                
-                                doc.Components.Schemas.Merge(r.BodyType.GetSchemas());
-                                
-                                return new OpenApiResponse {
-                                    Content = new Dictionary<string, OpenApiMediaType> {
-                                        ["application/json"] = new OpenApiMediaType { Schema = new OpenApiSchema {
-                                            Reference = new OpenApiReference { Type = ReferenceType.Schema, Id = r.BodyType.Name }
-                                        } }
-                                    },
-                                    Reference = new OpenApiReference { Type = ReferenceType.Schema, Id = r.BodyType.Name }
-                                };
-                            })
+                            Responses = responses
                         })
                     };
                 }   

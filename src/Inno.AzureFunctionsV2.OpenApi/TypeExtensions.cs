@@ -10,10 +10,13 @@ namespace Inno.AzureFunctionsV2.OpenApi
     {
         public static IDictionary<TKey, TValue> Merge<TKey, TValue>(this IDictionary<TKey,TValue> a, IDictionary<TKey, TValue> b)
         {
-            foreach(var kvp in b)
+            if(b != null)
             {
-                if(!a.ContainsKey(kvp.Key)) {
-                    a[kvp.Key] = kvp.Value;
+                foreach(var kvp in b)
+                {
+                    if(!a.ContainsKey(kvp.Key)) {
+                        a[kvp.Key] = kvp.Value;
+                    }
                 }
             }
 
@@ -41,6 +44,19 @@ namespace Inno.AzureFunctionsV2.OpenApi
         public static bool IsIEnumerable(this Type type)
         {
             return type.IsArray || (type.GetInterface(typeof(System.Collections.IEnumerable).Name) != null) && type != typeof(String);
+        }
+
+        public static OpenApiSchema MapPrimitive(this Type type)
+        {
+            if(TypeToOpenApiTypeFormatMap.TryGetValue(type, out var openApiType))
+            {
+                return new OpenApiSchema {
+                    Type = openApiType.Item1,
+                    Format = openApiType.Item2
+                };
+            }
+
+            return null;
         }
 
         public static bool TryMapPrimitive(this Type type, out OpenApiSchema schema)
@@ -107,12 +123,13 @@ namespace Inno.AzureFunctionsV2.OpenApi
         }
 
 
-        public static IEnumerable<ParameterInfo> GetParametersExcluding(this MethodInfo m, HashSet<Type> excludedParameterTypes)
+        public static IEnumerable<ParameterInfo> GetParametersExcluding(this MethodInfo m, HashSet<Type> excludedParameterTypes = null)
         {
+            var excludedTypes = excludedParameterTypes ?? new HashSet<Type>();
             return m.GetParameters()
                     .Where(p => 
-                            !excludedParameterTypes.Contains(p.ParameterType)
-                            && !p.GetCustomAttributes().Any(a => excludedParameterTypes.Contains(a.GetType())));
+                            !excludedTypes.Contains(p.ParameterType)
+                            && !p.GetCustomAttributes().Any(a => excludedTypes.Contains(a.GetType())));
         }
 
         public static IEnumerable<T> GetAttributes<T>(this MethodInfo m)
