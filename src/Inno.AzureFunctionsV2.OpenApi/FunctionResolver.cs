@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.WebJobs;
 using Microsoft.OpenApi.Models;
+using System.ComponentModel;
 
 namespace Inno.AzureFunctionsV2.OpenApi
 {
@@ -18,6 +19,7 @@ namespace Inno.AzureFunctionsV2.OpenApi
             if(functionAttr != null && triggerAttr != null) {
                definition = new FunctionDefinition {
                     Name = functionAttr.Name,
+                    Description = methodInfo.GetAttributes<DescriptionAttribute>().FirstOrDefault()?.Description, 
                     ContainingType = methodInfo.DeclaringType,
                     Methods = triggerAttr.Methods.Select(m => (OperationType)Enum.Parse(typeof(OperationType),m, true)).ToArray(),
                     Route = "/" + triggerAttr.Route.TrimStart('/'),

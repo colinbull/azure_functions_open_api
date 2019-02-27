@@ -47,7 +47,16 @@ namespace Inno.AzureFunctionsV2.OpenApi
                 Paths = new OpenApiPaths(),
                 Components = new OpenApiComponents {
                     Schemas = new Dictionary<string, OpenApiSchema>()
-                }
+                },
+                SecurityRequirements = new List<OpenApiSecurityRequirement> {
+                                new OpenApiSecurityRequirement { 
+                                    { new OpenApiSecurityScheme {
+                                        Type = SecuritySchemeType.ApiKey,
+                                        In = ParameterLocation.Header,
+                                        Name = "api_key"
+                                    }, new List<string>{""} }
+                                 }
+                            }
             };
             
             ExcludedParameterTypes.UnionWith(additionalParamterExclusionTypes ?? Enumerable.Empty<Type>());
@@ -98,7 +107,6 @@ namespace Inno.AzureFunctionsV2.OpenApi
                     }
 
                     doc.Paths[func.Route] = new OpenApiPathItem {
-                        Description = func.Description,
                         Parameters = func.Parameters.Select(p =>
                             new OpenApiParameter {
                                 In = ParameterLocation.Path,
@@ -108,7 +116,18 @@ namespace Inno.AzureFunctionsV2.OpenApi
                             }
                         ).ToList(),
                         Operations = func.Methods.ToDictionary(m => m, m => new OpenApiOperation {
-                            Responses = responses
+                            Description = func.Description,
+                            Responses = responses,
+                            Security = new List<OpenApiSecurityRequirement> {
+                                new OpenApiSecurityRequirement { 
+                                    { new OpenApiSecurityScheme {
+                                        Type = SecuritySchemeType.ApiKey,
+                                        In = ParameterLocation.Header,
+                                        Name = "api_key"
+                                    }, new List<string>{""} 
+                                    }
+                                 }
+                            }
                         })
                     };
                 }   
